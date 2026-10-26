@@ -1,0 +1,8 @@
+{
+  "name": "@tracenest/sdk",
+  "version": "1.0.0",
+  "description": "Lightweight Node.js/Express middleware SDK for TraceNest log and performance monitoring",
+  "main": "index.js",
+  "keywords": ["tracenest", "logging", "monitoring", "apm", "express"],
+  "license": "MIT"
+}

@@ -8,9 +8,13 @@ const morgan  = require('morgan');
 const errorHandler    = require('./middleware/errorHandler.middleware');
 const { generalLimiter } = require('./middleware/rateLimit.middleware');
 
-const authRoutes    = require('./routes/auth.routes');
-const projectRoutes = require('./routes/project.routes');
-const ingestRoutes  = require('./routes/ingest.routes');
+const authRoutes      = require('./routes/auth.routes');
+const projectRoutes   = require('./routes/project.routes');
+const ingestRoutes    = require('./routes/ingest.routes');
+const logsRoutes      = require('./routes/logs.routes');
+const analyticsRoutes = require('./routes/analytics.routes');
+const alertsRoutes    = require('./routes/alerts.routes');
+const sseRoutes       = require('./routes/sse.routes');
 
 const app = express();
 
@@ -56,9 +60,14 @@ app.get('/health', (_req, res) => {
 });
 
 // ── API Routes ─────────────────────────────────────────────────────
-app.use('/api/auth',     authRoutes);
-app.use('/api/projects', projectRoutes);
-app.use('/api/ingest',   ingestRoutes);
+app.use('/api/auth',      authRoutes);
+app.use('/api/projects',  projectRoutes);
+app.use('/api/ingest',    ingestRoutes);
+// Phase 2 routes
+app.use('/api/logs',      logsRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/alerts',    alertsRoutes);
+app.use('/api/sse',       sseRoutes);
 
 // ── 404 catch-all ──────────────────────────────────────────────────
 app.use((req, res) => {

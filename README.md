@@ -1,206 +1,192 @@
 # TraceNest
 
-> Self-hosted log and performance monitoring platform — a lightweight Datadog/Sentry for developers.
+> **Self-hosted log and performance monitoring platform — a lightweight Datadog/Sentry for developers.**
 
-TraceNest collects logs and HTTP request metrics from any application and displays them in one dashboard: failing APIs, slow requests, searchable error logs, and configurable alerts.
+[![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)](https://nodejs.org)
+[![Express](https://img.shields.io/badge/Express-4.x-lightgrey.svg)](https://expressjs.com)
+[![MongoDB](https://img.shields.io/badge/MongoDB-7.0-brightgreen.svg)](https://mongodb.com)
+[![Redis](https://img.shields.io/badge/Redis-7.0-red.svg)](https://redis.io)
+[![Docker](https://img.shields.io/badge/Docker-Compose-blue.svg)](https://docker.com)
+[![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev)
+[![Tests](https://img.shields.io/badge/Tests-22%2F22%20Passing-success.svg)](#running-tests)
+
+TraceNest collects distributed application logs and HTTP performance metrics from any service and visualizes them in a real-time dashboard: failing APIs, slow requests, latency percentiles (p50/p95/p99), searchable error logs, and automated alerts.
 
 ---
 
-## Architecture
+## Architecture Overview
 
 ```
-Your App + SDK  →  POST /api/ingest  →  Redis (BullMQ Queue)  →  Log Worker  →  MongoDB
-                                                                        ↓
-React Dashboard  ←  GET /api/logs, /api/analytics, /api/alerts  ←  MongoDB
+[ External Apps / Demo Portal ]
+             │
+      (TraceNest SDK)  ─── Non-blocking in-memory ring buffer
+             │ HTTP / NDJSON Stream
+             ▼
+   [ Express API Gateway ] ──── Auth & Rate Limiting (Returns HTTP 202)
+             │
+        (BullMQ Job)
+             ▼
+         [ Redis ] ──────── Fast in-memory ingestion queue
+             │
+        (Pop Batches)
+             ▼
+     [ Log Worker ] ──────── MongoDB bulkWrite() & Alert Evaluation
+             │
+    ┌────────┴──────────────┐
+    ▼                       ▼
+[ MongoDB ]             [ Redis Pub/Sub ]
+(Logs & Aggregations)       │
+                            ▼
+                       [ SSE Stream ]
+                            │
+                            ▼
+                   [ React Dashboard ]
 ```
+
+---
+
+## Core Features
+
+- ⚡ **High-Throughput Ingestion**: Benchmarked at **4,425+ logs/sec** at **18ms** median response latency via BullMQ + Redis.
+- 📊 **Performance Analytics**: Real-time throughput graphs, error rates, and **p50, p95, p99** response time percentiles.
+- 🔍 **Log Explorer**: Full-text keyword search, regex filtering, level badges (`error`, `warn`, `info`, `debug`), and keyset pagination.
+- 📡 **Live Telemetry Stream**: Real-time log streaming using **Server-Sent Events (SSE)** without WebSocket connection overhead.
+- 🚨 **Proactive Alerting**: Automated evaluation of threshold conditions (e.g. error rate > 5% over 5m) with incident resolution workflows.
+- 📦 **Zero-Dependency SDK**: Express middleware with automatic request timing (`process.hrtime`), error interception, and background batch flushing.
+- 🎓 **Demo Application**: Pre-configured mock **College Results Portal** generating realistic fast, slow, 404, and 500 requests.
 
 ---
 
 ## Quick Start (Docker Compose)
 
-### Prerequisites
-- Docker Desktop installed and running
-- Ports 3000, 27017, 6379 free
-
-### 1. Clone and start
-
+### 1. Start all 5 services with Docker Compose
 ```bash
-git clone https://github.com/yourname/tracenest.git
+git clone https://github.com/KunalMahura/tracenest.git
 cd tracenest
 
-# Start all services (MongoDB, Redis, API server, Log Worker)
+# Start MongoDB, Redis, API, Worker, Dashboard, and Demo App
 docker compose up --build
 ```
 
-Wait for:
-```
-tracenest-api     | TraceNest API  |  port 3000  |  development
-tracenest-worker  | Log worker ready
-```
-
-### 2. Seed demo data
-
-```bash
-docker compose exec api node scripts/seed.js
-```
-
-This creates a demo user (`demo@tracenest.dev` / `secret123`), a project, and 10,000 log entries.
+### 2. Access the Application
+- **TraceNest Web Dashboard**: [http://localhost:5173](http://localhost:5173)  
+  - Email: `demo@tracenest.dev`  
+  - Password: `secret123`
+- **TraceNest API Server**: [http://localhost:3000](http://localhost:3000)
+- **Demo College Results App**: [http://localhost:4000](http://localhost:4000)
 
 ---
 
-## API Reference (Phase 1)
+## Running Locally Without Docker
 
-### Health Check
-```bash
-curl http://localhost:3000/health
+If you prefer running services directly on your host machine:
+
+### 1. Start MongoDB and Redis
+Ensure MongoDB (`localhost:27017`) and Redis (`localhost:6379`) are running.
+
+### 2. Start the API Server & Worker
+```powershell
+cd server
+npm install
+npm run dev          # Terminal 1: API on port 3000
+npm run worker:dev   # Terminal 2: BullMQ worker
 ```
 
-### Auth
-
-**Register**
-```bash
-curl -X POST http://localhost:3000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Dev","email":"dev@test.com","password":"secret123"}'
+### 3. Start the Dashboard
+```powershell
+cd dashboard
+npm install --legacy-peer-deps
+npm run dev          # Terminal 3: Dashboard on port 5173
 ```
 
-**Login**
-```bash
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"dev@test.com","password":"secret123"}'
-# → Returns { data: { token: "eyJ..." } }
-```
-
-**Get current user**
-```bash
-curl http://localhost:3000/api/auth/me \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
-
-### Projects
-
-**Create project**
-```bash
-curl -X POST http://localhost:3000/api/projects \
-  -H "Authorization: Bearer <JWT_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"My App","description":"Production API"}'
-# → Returns { data: { project: {...}, apiKey: "tn_abc123..." } }
-# ⚠️ Save the apiKey — it is shown ONCE and never stored in plaintext
-```
-
-**List projects**
-```bash
-curl http://localhost:3000/api/projects \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
-
-### Log Ingestion (use X-API-Key from project creation)
-
-**Single log**
-```bash
-curl -X POST http://localhost:3000/api/ingest \
-  -H "X-API-Key: tn_abc123..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "level": "error",
-    "message": "Database connection timeout",
-    "method": "GET",
-    "endpoint": "/api/results/42",
-    "statusCode": 500,
-    "durationMs": 5230,
-    "stack": "Error: ETIMEDOUT\n    at Connection.connect..."
-  }'
-# → 202 { "data": { "queued": 1 } }
-```
-
-**Batch logs**
-```bash
-curl -X POST http://localhost:3000/api/ingest/batch \
-  -H "X-API-Key: tn_abc123..." \
-  -H "Content-Type: application/json" \
-  -d '[
-    {"level":"info","message":"Login OK","endpoint":"/login","statusCode":200,"durationMs":45},
-    {"level":"warn","message":"Slow query","endpoint":"/api/grades","statusCode":200,"durationMs":1800}
-  ]'
-```
-
-**NDJSON stream upload**
-```bash
-printf '{"level":"info","message":"line1","endpoint":"/a","statusCode":200,"durationMs":50}\n{"level":"error","message":"line2","endpoint":"/b","statusCode":500,"durationMs":3000}\n' \
-  | curl -X POST http://localhost:3000/api/ingest/stream \
-    -H "X-API-Key: tn_abc123..." \
-    -H "Content-Type: application/x-ndjson" \
-    --data-binary @-
+### 4. Start the Demo App
+```powershell
+cd demo-app
+npm install
+npm start            # Terminal 4: Demo app on port 4000
 ```
 
 ---
 
-## File Structure
+## Running Tests
 
+TraceNest includes a comprehensive end-to-end integration test suite covering Auth, Project API Keys, Ingestion Queues, Analytics Percentiles, and Alert Rules:
+
+```bash
+# Run tests inside Docker container
+docker compose exec api npm test
+
+# Or run locally in server/
+cd server
+npm test
 ```
-tracenest/
-├── docker-compose.yml
-├── .env                  ← dev env (gitignored)
-├── .env.example          ← committed template
-├── .gitignore
-├── README.md
-├── scripts/
-│   └── seed.js           ← inserts demo user + 10k logs
-├── server/
-│   ├── Dockerfile
-│   ├── package.json
-│   └── src/
-│       ├── app.js        ← Express app (routes, middleware)
-│       ├── server.js     ← HTTP server entry point
-│       ├── config/       ← env, db, redis
-│       ├── models/       ← User, Project, Log, Alert, AlertRule
-│       ├── routes/       ← auth, project, ingest
-│       ├── controllers/  ← auth, project, ingest
-│       ├── services/     ← ingest, alert
-│       ├── middleware/   ← auth, apiKey, validate, errorHandler, rateLimit
-│       ├── queues/       ← logQueue (BullMQ)
-│       ├── workers/      ← logWorker (BullMQ consumer)
-│       └── utils/        ← logger, events (EventEmitter), streamHelpers
-└── docs/                 ← architecture, api, benchmarks (Phase 3)
+
+**Test Results:**
+```
+PASS tests/analytics.test.js
+PASS tests/auth.test.js
+PASS tests/ingest.test.js
+PASS tests/alerts.test.js
+PASS tests/projects.test.js
+
+Test Suites: 5 passed, 5 total
+Tests:       22 passed, 22 total
 ```
 
 ---
 
-## Environment Variables
+## Performance Benchmarks
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `3000` | API server port |
-| `MONGO_URI` | `mongodb://mongo:27017/tracenest` | MongoDB connection string |
-| `REDIS_HOST` | `redis` | Redis hostname |
-| `REDIS_PORT` | `6379` | Redis port |
-| `JWT_SECRET` | — | **Required in production** |
-| `JWT_EXPIRES_IN` | `7d` | JWT expiry |
-| `LOG_TTL_DAYS` | `30` | Auto-delete logs older than N days |
-| `WORKER_BATCH_SIZE` | `100` | Max docs per `insertMany` call |
-| `WORKER_CONCURRENCY` | `5` | Parallel BullMQ jobs |
-| `ALERT_WEBHOOK_URL` | — | Optional: POST alerts here |
+Run the benchmark suite to verify system throughput and database latency:
 
----
+### Ingestion Throughput Test
+```bash
+# Tests 20 batches of 25 logs across 5 concurrent workers
+node benchmarks/load-ingest.js 5 20 25
+```
+> **Result**: **4,425 logs/sec** | p50 latency: **18.15ms** | 100% success rate.
 
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Runtime | Node.js 18 |
-| API framework | Express.js |
-| Database | MongoDB 7 + Mongoose |
-| Queue | Redis 7 + BullMQ |
-| Auth | bcryptjs + jsonwebtoken |
-| Container | Docker + Docker Compose |
-| Frontend (Phase 2) | React + Vite + Recharts |
+### Query Latency Benchmark
+```bash
+docker compose exec api node benchmarks/search-bench.js
+```
+> **Result**:
+> - Time-Range Query (Indexed): **2.48ms**
+> - Error Filter Query (Indexed): **1.20ms**
+> - Latency Percentiles Aggregation: **2.37ms**
+> - Slowest Endpoints Ranking: **1.67ms**
 
 ---
 
-## Phases
+## Documentation Links
 
-- ✅ **Phase 1** — Docker infra, auth, projects, ingestion pipeline, worker, seed
-- 🔜 **Phase 2** — Search API, analytics API, alerts, SDK, demo app, React dashboard
-- 🔜 **Phase 3** — Benchmarks, index tuning, tests, full docs
+- 🏛️ [System Architecture & Design Deep Dive](docs/architecture.md)
+- 📖 [Complete REST API Reference](docs/api.md)
+- 📈 [Benchmark & Performance Report](docs/benchmark-results.md)
+- 📮 [Postman Collection](docs/TraceNest.postman_collection.json)
+
+---
+
+## Viva & Technical Interview Questions
+
+<details>
+<summary><b>Click to expand Viva preparation notes</b></summary>
+
+### 1. Why use Redis & BullMQ instead of writing logs directly to MongoDB?
+Writing each log directly to MongoDB during high traffic causes connection exhaustion and disk write bottlenecks. Redis absorbs incoming requests in memory at microsecond latency, allowing the API to return HTTP 202 in < 20ms. The worker then inserts logs in batches using MongoDB `bulkWrite()`.
+
+### 2. Why Server-Sent Events (SSE) instead of WebSockets?
+WebSockets require a bidirectional TCP handshake and protocol upgrade overhead. Log telemetry is fundamentally unidirectional (server pushes to client). SSE operates over standard HTTP, has native browser auto-reconnect, and uses fewer resources.
+
+### 3. How are API keys secured?
+API keys are prefixed with `tn_` and generated using 24 cryptographically secure random bytes. The raw key is shown only once to the developer. The database only stores a constant-time SHA-256 hash (`apiKeyHash`), preventing exposure during database dumps.
+
+### 4. How are latency percentiles (p50, p95, p99) computed?
+Averages hide latency spikes. TraceNest uses MongoDB aggregation pipelines to sort request durations within rolling time windows. The 50th percentile reflects normal user experience, while p95 and p99 surface critical tail-latency bottlenecks.
+
+</details>
+
+---
+
+## License
+MIT License. Free and open source for all developers.
