@@ -15,11 +15,21 @@ jobs:
         image: mongo:7
         ports:
           - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
       redis:
         image: redis:7-alpine
         ports:
           - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout Repository
@@ -29,12 +39,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: server/package-lock.json
 
       - name: Install Server Dependencies
         working-directory: ./server
-        run: npm ci
+        run: npm install
 
       - name: Run Integration Tests
         working-directory: ./server
@@ -50,5 +58,5 @@ jobs:
       - name: Build React Dashboard
         working-directory: ./dashboard
         run: |
-          npm ci --legacy-peer-deps
+          npm install --legacy-peer-deps
           npm run build
