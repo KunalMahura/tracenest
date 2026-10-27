@@ -43,7 +43,8 @@ services:
     ports:
       - "3000:3000"
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       NODE_ENV: development
       SERVICE: api
@@ -67,7 +68,8 @@ services:
     container_name: tracenest-worker
     restart: unless-stopped
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       NODE_ENV: development
       SERVICE: worker
