@@ -55,6 +55,7 @@ const tnClient = createClient({
 });
 
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Helper: simulate async work with latency ─────────────────────
 function delay(ms) {
@@ -87,7 +88,18 @@ const SUBJECTS = [
 
 // ── Routes ────────────────────────────────────────────────────────
 
+app.get('/api', (req, res) => {
+  res.json({
+    service: 'College Results Portal',
+    version: '1.0.0',
+    routes:  ['/results/:studentId', '/results/batch', '/subjects', '/rankings', '/admin/report'],
+  });
+});
+
 app.get('/', (req, res) => {
+  if (req.accepts('html')) {
+    return res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  }
   res.json({
     service: 'College Results Portal',
     version: '1.0.0',

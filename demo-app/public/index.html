@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Apex Institute of Technology — Results Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <!-- Top Navigation Bar -->
+  <header class="top-nav">
+    <div class="nav-container">
+      <div class="nav-brand">
+        <div class="brand-logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+            <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-name">Apex Institute of Technology</div>
+          <div class="brand-sub">Examination & Results Portal</div>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <div class="telemetry-badge" id="telemetryBadge" title="TraceNest SDK is actively intercepting and tracing all traffic">
+          <span class="pulse-dot"></span>
+          <span>TraceNest Instrumented</span>
+        </div>
+        <a href="http://localhost:5173" target="_blank" rel="noopener noreferrer" class="btn-dashboard">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          Open Observability Dashboard
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <main class="main-content">
+    <div class="hero-banner">
+      <div class="hero-badge">Academic Session 2025–2026 • Spring Semester Results</div>
+      <h1 class="hero-title">Official Student Results Portal</h1>
+      <p class="hero-desc">
+        Access comprehensive grade reports, semester CGPA rankings, and subject scorecards. Every request is monitored in real-time by TraceNest.
+      </p>
+
+      <!-- Navigation Tabs -->
+      <div class="portal-tabs">
+        <button class="tab-btn active" data-tab="searchTab">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          Student Scorecard
+        </button>
+        <button class="tab-btn" data-tab="rankingsTab" id="btnRankingsTab">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+            <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+            <path d="M4 22h16"></path>
+            <path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"></path>
+            <path d="M18 2H6v7a6 6 0 0 0 12 0V2z"></path>
+          </svg>
+          Rankings & Leaderboard
+        </button>
+        <button class="tab-btn" data-tab="subjectsTab" id="btnSubjectsTab">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+          Curriculum Subjects
+        </button>
+        <button class="tab-btn highlight-tab" data-tab="telemetryTab">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+          Telemetry Lab
+        </button>
+      </div>
+    </div>
+
+    <!-- TAB 1: Search & Student Scorecard -->
+    <section id="searchTab" class="tab-pane active">
+      <div class="search-card">
+        <form id="searchForm" class="search-form">
+          <div class="input-wrapper">
+            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input 
+              type="number" 
+              id="studentIdInput" 
+              placeholder="Enter Student ID (e.g. 1001 – 1200)" 
+              value="1042" 
+              min="1000" 
+              max="9999" 
+              required
+            />
+          </div>
+          <button type="submit" class="btn-primary" id="btnSearch">
+            <span class="btn-text">View Result</span>
+            <div class="spinner" id="searchSpinner"></div>
+          </button>
+          <button type="button" class="btn-secondary" id="btnRandom">
+            🎲 Random Student
+          </button>
+        </form>
+
+        <div class="quick-chips">
+          <span class="chip-label">Quick samples:</span>
+          <button type="button" class="chip" data-id="1001">ID: 1001</button>
+          <button type="button" class="chip" data-id="1015">ID: 1015</button>
+          <button type="button" class="chip" data-id="1077">ID: 1077</button>
+          <button type="button" class="chip" data-id="1150">ID: 1150</button>
+          <button type="button" class="chip chip-danger" data-id="9005">ID: 9005 (Simulate 404)</button>
+        </div>
+      </div>
+
+      <!-- Result Card Container -->
+      <div id="resultContainer" class="result-display-area">
+        <!-- Will be populated dynamically by app.js -->
+      </div>
+    </section>
+
+    <!-- TAB 2: Rankings & Leaderboard -->
+    <section id="rankingsTab" class="tab-pane">
+      <div class="content-card">
+        <div class="card-header-flex">
+          <div>
+            <h2 class="section-title">Semester Top Performers</h2>
+            <p class="section-desc">Computed across all 200 enrolled undergraduate engineering students.</p>
+          </div>
+          <button class="btn-secondary" id="btnRefreshRankings">
+            🔄 Refresh Rankings
+          </button>
+        </div>
+
+        <div id="rankingsLoading" class="loading-state">
+          <div class="spinner-lg"></div>
+          <p>Computing rankings (simulating CPU intensive aggregation)...</p>
+        </div>
+
+        <div id="rankingsTableContainer" class="table-responsive">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: Curriculum Subjects -->
+    <section id="subjectsTab" class="tab-pane">
+      <div class="content-card">
+        <div class="card-header-flex">
+          <div>
+            <h2 class="section-title">Department of Computer Science & Engineering</h2>
+            <p class="section-desc">Accredited Core Course Curriculum (Semester 5 & 6)</p>
+          </div>
+          <button class="btn-secondary" id="btnRefreshSubjects">
+            🔄 Reload Subjects
+          </button>
+        </div>
+
+        <div id="subjectsLoading" class="loading-state">
+          <div class="spinner-lg"></div>
+          <p>Fetching syllabus data...</p>
+        </div>
+
+        <div id="subjectsGrid" class="subjects-grid">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: Telemetry Lab -->
+    <section id="telemetryTab" class="tab-pane">
+      <div class="content-card telemetry-card">
+        <div class="telemetry-header">
+          <div>
+            <h2 class="section-title">TraceNest Telemetry Simulator</h2>
+            <p class="section-desc">
+              Trigger targeted scenarios directly against the demo app to watch metrics, error rates, and traces update in real-time on your TraceNest dashboard.
+            </p>
+          </div>
+          <div class="live-activity-pill">
+            <span class="pulse-dot"></span>
+            <span>Background Traffic Generator: <strong id="bgStatus">Active (~1 req/s)</strong></span>
+          </div>
+        </div>
+
+        <div class="telemetry-actions-grid">
+          <div class="action-box">
+            <div class="action-meta">
+              <span class="badge badge-success">HTTP 200 OK</span>
+              <h3>Fast Query</h3>
+              <p>Fetches standard student results (~15ms latency).</p>
+            </div>
+            <button class="btn-action btn-act-fast" id="btnTriggerFast">
+              ⚡ Trigger Fast GET
+            </button>
+          </div>
+
+          <div class="action-box">
+            <div class="action-meta">
+              <span class="badge badge-warning">Simulated Lag</span>
+              <h3>Slow Database Query</h3>
+              <p>Simulates heavy disk/DB lag (800ms - 3000ms delay).</p>
+            </div>
+            <button class="btn-action btn-act-slow" id="btnTriggerSlow">
+              🐢 Trigger Slow Request
+            </button>
+          </div>
+
+          <div class="action-box">
+            <div class="action-meta">
+              <span class="badge badge-danger">HTTP 404 / 500</span>
+              <h3>Simulate Database Error</h3>
+              <p>Triggers a DatabaseTimeoutError or missing record.</p>
+            </div>
+            <button class="btn-action btn-act-error" id="btnTriggerError">
+              💥 Trigger Error Scenario
+            </button>
+          </div>
+
+          <div class="action-box">
+            <div class="action-meta">
+              <span class="badge badge-purple">HTTP 403 Forbidden</span>
+              <h3>Admin Security Probe</h3>
+              <p>Accesses restricted /admin/report without token.</p>
+            </div>
+            <button class="btn-action btn-act-admin" id="btnTriggerAdmin">
+              🔒 Trigger 403 Forbidden
+            </button>
+          </div>
+
+          <div class="action-box full-width">
+            <div class="action-meta">
+              <span class="badge badge-info">Traffic Burst</span>
+              <h3>Burst Traffic Spike (10 Concurrent Requests)</h3>
+              <p>Fires 10 concurrent requests to test TraceNest rate limits and throughput percentiles.</p>
+            </div>
+            <button class="btn-action btn-act-burst" id="btnTriggerBurst">
+              🚀 Launch 10x Request Spike
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Console Output Box -->
+        <div class="console-box">
+          <div class="console-head">
+            <span>Terminal Inspector / Live HTTP Response</span>
+            <button class="btn-clear" id="btnClearConsole">Clear Log</button>
+          </div>
+          <pre id="consoleOutput" class="console-body">// Ready. Click any test action above or search for a student...</pre>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-container">
+      <div>Apex Institute of Technology • Integrated with <strong>TraceNest Observability SDK</strong></div>
+      <div class="footer-meta">Demo Service Port: <code>:4000</code> • TraceNest API: <code>:3000</code> • Dashboard: <code>:5173</code></div>
+    </div>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
