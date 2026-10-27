@@ -4,14 +4,15 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import {
   Activity, LayoutDashboard, Search, Bell, LogOut, ChevronDown,
-  Zap, Wifi,
+  Zap, Wifi, Globe,
 } from 'lucide-react';
 
 const NAV = [
-  { to: '/',          icon: LayoutDashboard, label: 'Overview'     },
+  { to: '/overview',  icon: LayoutDashboard, label: 'Overview'     },
   { to: '/logs',      icon: Search,          label: 'Log Explorer' },
   { to: '/live',      icon: Wifi,            label: 'Live Feed'    },
   { to: '/alerts',    icon: Bell,            label: 'Alerts'       },
+  { to: '/landing',   icon: Globe,           label: 'Landing Page' },
 ];
 
 export default function Layout() {
@@ -56,36 +57,43 @@ export default function Layout() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-950">
+    <div className="flex h-screen overflow-hidden bg-[#F8F4EF] text-[#1D2621]">
       {/* Sidebar */}
-      <aside className="w-56 shrink-0 flex flex-col bg-slate-900 border-r border-slate-800">
+      <aside className="w-60 shrink-0 flex flex-col bg-[#F4EFEA] border-r border-[#E2DAD0] shadow-sm">
         {/* Logo */}
-        <div className="flex items-center gap-2.5 px-5 py-5 border-b border-slate-800">
-          <div className="flex items-center justify-center w-8 h-8 bg-brand-600/20 rounded-lg border border-brand-500/30">
-            <Activity size={16} className="text-brand-400" />
+        <div className="flex items-center gap-2.5 px-5 py-5 border-b border-[#E2DAD0]">
+          <div className="flex items-center justify-center w-8 h-8 bg-[#508167]/15 rounded-lg border border-[#508167]/30 text-[#508167]">
+            <Activity size={18} />
           </div>
-          <span className="font-bold text-white text-sm">TraceNest</span>
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-[#1D2621] text-base tracking-tight font-display-hero">TraceNest</span>
+            <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-[#CADFD5]/70 text-[#2C493A]">
+              APM
+            </span>
+          </div>
         </div>
 
         {/* Project selector */}
-        <div className="px-3 py-3 border-b border-slate-800" ref={dropRef}>
-          <p className="text-xs text-slate-500 mb-1.5 px-2 font-medium uppercase tracking-wider">Project</p>
+        <div className="px-3 py-3 border-b border-[#E2DAD0]" ref={dropRef}>
+          <p className="text-[11px] text-[#67786E] mb-1.5 px-2 font-semibold uppercase tracking-wider">Project</p>
           <button
             id="project-selector"
             onClick={() => setProjOpen(v => !v)}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-750 text-sm text-slate-200 transition-colors"
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-white border border-[#DDD5C7] hover:border-[#CADFD5] text-xs font-medium text-[#1D2621] shadow-xs transition-colors"
           >
             <span className="truncate">{project?.name || 'Select project'}</span>
-            <ChevronDown size={14} className="text-slate-400 shrink-0 ml-1" />
+            <ChevronDown size={14} className="text-[#67786E] shrink-0 ml-1" />
           </button>
           {projOpen && (
-            <div className="mt-1 rounded-lg bg-slate-800 border border-slate-700 overflow-hidden shadow-xl">
+            <div className="mt-1 rounded-lg bg-white border border-[#DDD5C7] overflow-hidden shadow-lg z-20">
               {projects.map((p) => (
                 <button
                   key={p._id}
                   onClick={() => selectProject(p)}
-                  className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-700 transition-colors ${
-                    project?._id === p._id ? 'text-brand-400' : 'text-slate-300'
+                  className={`w-full text-left px-3 py-2 text-xs transition-colors ${
+                    project?._id === p._id
+                      ? 'bg-[#CADFD5]/40 text-[#508167] font-semibold'
+                      : 'text-[#2E3A33] hover:bg-[#F4EFEA]'
                   }`}
                 >
                   {p.name}
@@ -96,48 +104,48 @@ export default function Layout() {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-3 space-y-0.5">
+        <nav className="flex-1 px-3 py-3 space-y-1">
           {NAV.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
-              end={to === '/'}
+              end={to === '/overview'}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-all ${
                   isActive
-                    ? 'bg-brand-600/15 text-brand-400 font-medium'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                    ? 'bg-[#CADFD5]/60 text-[#1D2621] font-semibold border-l-4 border-[#508167] shadow-xs'
+                    : 'text-[#53645A] hover:text-[#1D2621] hover:bg-[#EAE4DC]'
                 }`
               }
             >
-              <Icon size={16} />
-              {label}
+              <Icon size={16} className="shrink-0" />
+              <span>{label}</span>
             </NavLink>
           ))}
         </nav>
 
-        {/* User */}
-        <div className="px-4 py-4 border-t border-slate-800 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-brand-600/30 flex items-center justify-center text-brand-400 text-xs font-bold shrink-0">
+        {/* User Footer */}
+        <div className="px-4 py-4 border-t border-[#E2DAD0] flex items-center gap-3 bg-[#EFE9E2]/60">
+          <div className="w-8 h-8 rounded-full bg-[#508167] text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-xs">
             {user?.name?.[0]?.toUpperCase() || '?'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-slate-200 font-medium truncate">{user?.name}</p>
-            <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+            <p className="text-xs text-[#1D2621] font-semibold truncate">{user?.name}</p>
+            <p className="text-[11px] text-[#67786E] truncate">{user?.email}</p>
           </div>
           <button
             id="logout-btn"
             onClick={handleLogout}
-            className="text-slate-500 hover:text-slate-300 transition-colors"
+            className="text-[#67786E] hover:text-red-700 transition-colors p-1"
             title="Sign out"
           >
-            <LogOut size={15} />
+            <LogOut size={16} />
           </button>
         </div>
       </aside>
 
-      {/* Main */}
-      <main className="flex-1 overflow-auto">
+      {/* Main Content Pane */}
+      <main className="flex-1 overflow-auto bg-[#F8F4EF]">
         <Outlet context={{ project }} />
       </main>
     </div>

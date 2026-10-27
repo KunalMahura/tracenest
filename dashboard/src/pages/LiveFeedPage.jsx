@@ -35,7 +35,7 @@ export default function LiveFeedPage() {
     setAlerts([]);
     setError('');
 
-    const es = new EventSource(url + `&token=${token}`); // token via query (SSE can't set headers)
+    const es = new EventSource(url + `&token=${token}`);
     esRef.current = es;
 
     es.addEventListener('connected', () => setConnected(true));
@@ -67,50 +67,52 @@ export default function LiveFeedPage() {
     };
   }, [project]);
 
-  // SSE doesn't support custom headers; we pass the JWT in the query string.
-  // The backend (sse.routes.js) should be adapted to also accept token from query.
-  // For now, logs appear after connecting.
-
   const clear = () => setLogs([]);
 
   if (!project) {
     return (
-      <div className="flex items-center justify-center h-full text-slate-500">
+      <div className="flex items-center justify-center h-full text-[#67786E]">
         Select a project from the sidebar.
       </div>
     );
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-[#F8F4EF]">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-slate-800 flex items-center gap-4 bg-slate-900/50">
-        <h1 className="text-base font-semibold text-white">Live Feed</h1>
+      <div className="px-6 py-4 border-b border-[#E2DAD0] flex items-center gap-4 bg-white shadow-2xs">
+        <h1 className="text-base font-bold text-[#1D2621] font-display-hero">Live Feed</h1>
         <div className="flex items-center gap-2">
           {connected ? (
-            <>
-              <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-              <span className="text-xs text-emerald-400">Connected</span>
-            </>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#CADFD5]/60 text-[#2C493A] font-semibold text-xs border border-[#CADFD5]">
+              <div className="w-2 h-2 bg-[#508167] rounded-full animate-pulse" />
+              <span>Streaming SSE</span>
+            </div>
           ) : (
-            <>
-              <div className="w-2 h-2 bg-red-400 rounded-full" />
-              <span className="text-xs text-red-400">{error || 'Connecting…'}</span>
-            </>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 font-semibold text-xs border border-red-200">
+              <div className="w-2 h-2 bg-[#BA1A1A] rounded-full" />
+              <span>{error || 'Connecting…'}</span>
+            </div>
           )}
         </div>
+
         <div className="ml-auto flex items-center gap-2">
           <button
+            type="button"
             onClick={() => setPaused(v => !v)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
               paused
-                ? 'bg-yellow-600/20 border-yellow-700 text-yellow-400'
-                : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'
+                ? 'bg-[#B58859]/15 border-[#B58859] text-[#B58859]'
+                : 'bg-[#F2ECE2] border-[#DDD5C7] text-[#1D2621] hover:bg-[#EAE4DC]'
             }`}
           >
             {paused ? '▶ Resume' : '⏸ Pause'}
           </button>
-          <button onClick={clear} className="btn-ghost flex items-center gap-1.5 text-xs">
+          <button
+            type="button"
+            onClick={clear}
+            className="btn-ghost flex items-center gap-1.5 text-xs font-medium cursor-pointer"
+          >
             <Trash2 size={13} /> Clear
           </button>
         </div>
@@ -118,33 +120,33 @@ export default function LiveFeedPage() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Log stream */}
-        <div className="flex-1 overflow-auto font-mono text-xs">
+        <div className="flex-1 overflow-auto font-mono text-xs bg-white">
           {logs.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-48 text-slate-600 gap-2">
-              <Wifi size={28} />
-              <p>Waiting for events from {project.name}…</p>
+            <div className="flex flex-col items-center justify-center h-64 text-[#67786E] gap-2">
+              <Wifi size={28} className="text-[#CADFD5]" />
+              <p className="text-xs font-medium">Waiting for events from {project.name}…</p>
             </div>
           )}
           {logs.map((log, i) => (
             <div
               key={`${log._id}-${i}`}
-              className={`flex gap-3 px-4 py-1.5 border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors items-start ${
-                log.level === 'error' ? 'bg-red-950/10' : ''
+              className={`flex gap-3 px-6 py-2 border-b border-[#E2DAD0]/60 hover:bg-[#F8F4EF] transition-colors items-start ${
+                log.level === 'error' ? 'bg-red-50/50' : ''
               }`}
             >
-              <span className="text-slate-600 shrink-0 w-20">
+              <span className="text-[#67786E] shrink-0 w-20">
                 {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
               </span>
-              <span className={`${BADGE[log.level] || 'badge-debug'} shrink-0`}>{log.level}</span>
+              <span className={`${BADGE[log.level] || 'badge-debug'} shrink-0 font-medium`}>{log.level}</span>
               {log.statusCode && (
-                <span className={`shrink-0 ${log.statusCode >= 500 ? 'text-red-400' : log.statusCode >= 400 ? 'text-yellow-400' : 'text-slate-500'}`}>
+                <span className={`shrink-0 font-bold ${log.statusCode >= 500 ? 'text-[#BA1A1A]' : log.statusCode >= 400 ? 'text-[#B58859]' : 'text-[#508167]'}`}>
                   {log.statusCode}
                 </span>
               )}
               {log.durationMs && (
-                <span className="text-slate-600 shrink-0">{log.durationMs}ms</span>
+                <span className="text-[#67786E] shrink-0">{log.durationMs}ms</span>
               )}
-              <span className="text-slate-300 break-all">{log.message}</span>
+              <span className="text-[#1D2621] break-all flex-1">{log.message}</span>
             </div>
           ))}
           <div ref={bottomRef} />
@@ -152,15 +154,17 @@ export default function LiveFeedPage() {
 
         {/* Alert sidebar */}
         {alerts.length > 0 && (
-          <div className="w-72 shrink-0 border-l border-slate-800 overflow-auto">
-            <div className="px-4 py-3 border-b border-slate-800">
-              <p className="text-xs font-semibold text-red-400 uppercase tracking-wider">🚨 Alert Triggers</p>
+          <div className="w-80 shrink-0 border-l border-[#E2DAD0] bg-[#FAF7F2] overflow-auto">
+            <div className="px-4 py-3 border-b border-[#E2DAD0] bg-white">
+              <p className="text-xs font-bold text-[#BA1A1A] uppercase tracking-wider flex items-center gap-1.5">
+                <span>🚨</span> Real-time Alert Triggers
+              </p>
             </div>
             {alerts.map((data, i) => (
-              <div key={i} className="px-4 py-3 border-b border-slate-800/60 hover:bg-slate-800/30">
-                <p className="text-xs font-medium text-red-400">{data.alert?.ruleName}</p>
-                <p className="text-xs text-slate-400 mt-0.5">{data.alert?.message}</p>
-                <p className="text-xs text-slate-600 mt-1">
+              <div key={i} className="px-4 py-3 border-b border-[#E2DAD0]/80 hover:bg-white transition-colors">
+                <p className="text-xs font-bold text-[#BA1A1A]">{data.alert?.ruleName}</p>
+                <p className="text-xs text-[#1D2621] mt-0.5 font-medium">{data.alert?.message}</p>
+                <p className="text-[10px] text-[#67786E] mt-1 font-mono">
                   {new Date(data.alert?.createdAt).toLocaleTimeString()}
                 </p>
               </div>
