@@ -5,7 +5,14 @@
  * On 401, the token is cleared and the user is redirected to /login.
  */
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+// Empty in local dev → relative /api/* URLs, proxied by Vite (see vite.config.js).
+// Set at build time in production (Vercel env var / Docker build arg).
+export const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+
+/** Absolute API URL shown in SDK snippets (falls back to this origin in dev). */
+export const PUBLIC_API_URL = API_BASE || (import.meta.env.DEV ? 'http://localhost:3000' : window.location.origin);
+
+const BASE = API_BASE;
 
 function getToken() {
   return localStorage.getItem('tn_token');
@@ -30,15 +37,17 @@ async function request(path, opts = {}) {
 
   const res = await fetch(`${BASE}${path}`, { ...opts, headers });
 
-  if (res.status === 401) {
+  // A 401 on login/register means bad credentials, not an expired session
+  if (res.status === 401 && !path.startsWith('/api/auth/')) {
     clearToken();
     window.location.href = '/login';
     throw new Error('Unauthorized');
   }
 
-  const json = await res.json();
+  const json = await res.json().catch(() => ({ success: false, error: `API returned ${res.status}` }));
   if (!json.success) {
-    throw new Error(json.error || 'API error');
+    const detail = json.details?.[0]?.message;
+    throw new Error(detail || json.error || 'API error');
   }
   return json.data;
 }
@@ -54,8 +63,11 @@ export const api = {
   // ── Projects ────────────────────────────────────────────────────
   projects: {
     list:   ()       => request('/api/projects'),
+    get:    (id)     => request(`/api/projects/${id}`),
     create: (data)   => request('/api/projects', { method: 'POST', body: JSON.stringify(data) }),
     del:    (id)     => request(`/api/projects/${id}`, { method: 'DELETE' }),
+    regenerateKey: (id) => request(`/api/projects/${id}/regenerate-key`, { method: 'POST' }),
+    usage:  (id)     => request(`/api/projects/${id}/usage`),
   },
 
   // ── Logs ────────────────────────────────────────────────────────

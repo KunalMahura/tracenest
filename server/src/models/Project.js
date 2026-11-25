@@ -2,6 +2,7 @@
 
 const mongoose = require('mongoose');
 const crypto = require('crypto');
+const env = require('../config/env');
 
 const projectSchema = new mongoose.Schema(
   {
@@ -22,6 +23,14 @@ const projectSchema = new mongoose.Schema(
     apiKeyPrefix: { type: String, required: true },
 
     isActive: { type: Boolean, default: true },
+
+    // Max logs this project may ingest per UTC day. Today's count lives in
+    // Redis (see services/quota.service.js) and resets automatically at midnight.
+    dailyLogQuota: {
+      type: Number,
+      min: 0,
+      default: () => env.DEFAULT_DAILY_LOG_QUOTA,
+    },
   },
   { timestamps: true }
 );

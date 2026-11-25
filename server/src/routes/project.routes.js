@@ -9,6 +9,7 @@ const {
   getProject,
   deleteProject,
   regenerateApiKey,
+  getProjectUsage,
 } = require('../controllers/project.controller');
 
 const authMiddleware = require('../middleware/auth.middleware');
@@ -41,6 +42,9 @@ router.get('/', listProjects);
 
 // GET /api/projects/:id
 router.get('/:id', getProject);
+
+// GET /api/projects/:id/usage — today's log quota usage
+router.get('/:id/usage', getProjectUsage);
 
 // DELETE /api/projects/:id
 router.delete('/:id', deleteProject);

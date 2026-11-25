@@ -1,6 +1,7 @@
 'use strict';
 
 const { enqueueLogBatch } = require('../queues/logQueue');
+const { reserveQuota } = require('./quota.service');
 const logger = require('../utils/logger');
 
 /** Valid log levels — anything else defaults to 'info' */
@@ -44,14 +45,16 @@ function normalizeLog(raw) {
 /**
  * Ingests a batch of raw log entries for a project.
  *
- * Validates batch size, normalizes each entry, then pushes to the Redis queue.
+ * Validates batch size, reserves the logs against the project's daily quota,
+ * normalizes each entry, then pushes to the Redis queue.
  * The actual MongoDB write happens in the worker process.
  *
- * @param {string|ObjectId} projectId  — project to ingest into
- * @param {object[]}        rawLogs    — raw log objects from request
- * @returns {Promise<number>}          — number of logs queued
+ * @param {object}   project  — Project document (from apiKey middleware)
+ * @param {object[]} rawLogs  — raw log objects from request
+ * @returns {Promise<{ queued: number, quota: object }>}
+ * @throws  400 for invalid batches, 429 (with err.quota) when the daily quota is used up
  */
-async function ingestBatch(projectId, rawLogs) {
+async function ingestBatch(project, rawLogs) {
   if (!Array.isArray(rawLogs) || rawLogs.length === 0) {
     const err = new Error('logs must be a non-empty array');
     err.status = 400;
@@ -65,11 +68,22 @@ async function ingestBatch(projectId, rawLogs) {
     throw err;
   }
 
-  const normalized = rawLogs.map(normalizeLog);
-  await enqueueLogBatch(projectId, normalized);
+  const quota = await reserveQuota(project, rawLogs.length);
+  if (!quota.allowed) {
+    const err = new Error(
+      `Daily log quota exceeded (${quota.used}/${quota.limit} used, ${rawLogs.length} more requested). ` +
+      `Quota resets at ${quota.resetsAt}.`
+    );
+    err.status = 429;
+    err.quota  = quota;
+    throw err;
+  }
 
-  logger.info(`[ingest] Queued ${normalized.length} logs for project ${projectId}`);
-  return normalized.length;
+  const normalized = rawLogs.map(normalizeLog);
+  await enqueueLogBatch(project._id, normalized);
+
+  logger.debug(`[ingest] Queued ${normalized.length} logs for project ${project._id}`);
+  return { queued: normalized.length, quota };
 }
 
 module.exports = { ingestBatch, normalizeLog };

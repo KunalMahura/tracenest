@@ -1,41 +1,105 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Geist:wght@400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
   body {
-    @apply bg-[#F8F4EF] text-[#1D2621] font-sans antialiased;
+    @apply bg-cream-200 text-ink font-sans antialiased;
     margin: 0;
+    font-feature-settings: 'ss01', 'cv11';
   }
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: #F2ECE2; }
-  ::-webkit-scrollbar-thumb { background: #CADFD5; border-radius: 9999px; }
-  ::-webkit-scrollbar-thumb:hover { background: #92B7A8; }
+
+  /* Faint paper grain — breaks up flat fills without a gradient */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0.35;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .11 0 0 0 0 .1 0 0 0 0 .08 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  ::selection { background: #e73213; color: #f7f1e6; }
+
+  :focus-visible { outline: 2px solid #e73213; outline-offset: 2px; }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #d8c7a6; border-radius: 9999px; border: 2px solid #efe6d5; }
+  ::-webkit-scrollbar-thumb:hover { background: #9dbeb7; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
 @layer components {
+  /* Surfaces */
   .card {
-    @apply bg-white border border-[#E2DAD0] rounded-xl p-4 shadow-sm;
+    @apply bg-cream-100 border border-ink/15 rounded-[10px] p-4;
   }
   .card-hover {
-    @apply hover:border-[#CADFD5] hover:shadow-md transition-all;
+    @apply transition-[transform,box-shadow,border-color] duration-200 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard hover:border-ink;
   }
+
+  /* Buttons — ink outline, hard shadow that "presses" on click */
   .btn-primary {
-    @apply bg-[#508167] hover:bg-[#3D6550] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors shadow-sm;
+    @apply inline-flex items-center justify-center gap-1.5 bg-vermilion-500 text-cream-50 text-sm font-semibold px-4 py-2 rounded-lg border border-ink shadow-hard-sm
+           transition-[transform,box-shadow,background-color] duration-150
+           hover:bg-vermilion-600 hover:-translate-x-px hover:-translate-y-px hover:shadow-hard
+           active:translate-x-0.5 active:translate-y-0.5 active:shadow-none
+           disabled:opacity-50 disabled:pointer-events-none;
   }
   .btn-secondary {
-    @apply bg-[#B58859] hover:bg-[#9B7247] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors shadow-sm;
+    @apply inline-flex items-center justify-center gap-1.5 bg-teal-300 text-ink text-sm font-semibold px-4 py-2 rounded-lg border border-ink shadow-hard-sm
+           transition-[transform,box-shadow,background-color] duration-150
+           hover:bg-teal-200 hover:-translate-x-px hover:-translate-y-px hover:shadow-hard
+           active:translate-x-0.5 active:translate-y-0.5 active:shadow-none;
   }
   .btn-ghost {
-    @apply bg-transparent hover:bg-[#EBF2EE] text-[#53645A] hover:text-[#1D2621] text-sm px-3 py-2 rounded-lg transition-colors;
+    @apply inline-flex items-center justify-center gap-1.5 bg-transparent text-ink-700 text-sm px-3 py-2 rounded-lg transition-colors hover:bg-cream-300/70 hover:text-ink;
   }
-  .badge-error  { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-red-50 text-red-700 border border-red-200; }
-  .badge-warn   { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-[#B58859]/15 text-[#8F6538] border border-[#B58859]/30; }
-  .badge-info   { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-[#CADFD5]/50 text-[#2C493A] border border-[#CADFD5]; }
-  .badge-debug  { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-[#F2ECE2] text-[#67786E] border border-[#E2DAD0]; }
-  .input        { @apply bg-white border border-[#DDD5C7] text-[#1D2621] text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-[#508167] focus:ring-1 focus:ring-[#508167] placeholder-[#8E9B92] w-full; }
-  .select       { @apply bg-white border border-[#DDD5C7] text-[#1D2621] text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-[#508167] focus:ring-1 focus:ring-[#508167] w-full; }
+
+  /* Level badges */
+  .badge-error { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-vermilion-50 text-vermilion-700 border border-vermilion-200; }
+  .badge-warn  { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-cream-300 text-ink-800 border border-cream-500; }
+  .badge-info  { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-teal-100 text-teal-700 border border-teal-300; }
+  .badge-debug { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-cream-100 text-ink-500 border border-ink/15; }
+
+  /* Form controls */
+  .input {
+    @apply bg-cream-50 border border-ink/20 text-ink text-sm rounded-lg px-3 py-2 w-full placeholder-ink-400
+           transition-[border-color,box-shadow] focus:outline-none focus:border-ink focus:shadow-hard-sm;
+  }
+  .select {
+    @apply bg-cream-50 border border-ink/20 text-ink text-sm rounded-lg px-3 py-2 w-full
+           focus:outline-none focus:border-ink focus:shadow-hard-sm;
+  }
+
+  /* Small uppercase mono label */
+  .eyebrow { @apply font-mono text-[11px] uppercase tracking-[0.14em] text-ink-500; }
+
+  /* Hairline ruled background, like a ledger */
+  .ruled {
+    background-image: repeating-linear-gradient(to bottom, transparent 0 31px, rgba(28,25,21,0.07) 31px 32px);
+  }
+  .dotgrid {
+    background-image: radial-gradient(rgba(28,25,21,0.16) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .tabular { font-variant-numeric: tabular-nums; }
 }

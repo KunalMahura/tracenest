@@ -1,20 +1,38 @@
 'use strict';
 
 const { ingestBatch } = require('../services/ingest.service');
+const { setQuotaHeaders } = require('../services/quota.service');
 const { NDJSONParser, collectStream } = require('../utils/streamHelpers');
+
+/**
+ * Runs an ingest and writes the response, including X-Quota-* headers on
+ * both success (202) and quota rejection (429).
+ */
+async function respond(req, res, next, rawLogs) {
+  try {
+    const { queued, quota } = await ingestBatch(req.project, rawLogs);
+    setQuotaHeaders(res, quota);
+    res.status(202).json({ success: true, data: { queued, quota } });
+  } catch (err) {
+    if (err.quota) {
+      setQuotaHeaders(res, err.quota);
+      res.setHeader('Retry-After', Math.max(1, Math.ceil((new Date(err.quota.resetsAt) - Date.now()) / 1000)));
+      return res.status(429).json({ success: false, error: err.message, data: { quota: err.quota } });
+    }
+    next(err);
+  }
+}
 
 /**
  * POST /api/ingest
  * Ingests a single log entry.
  * Responds 202 Accepted immediately — actual DB write happens in worker.
  */
-async function ingestSingle(req, res, next) {
-  try {
-    await ingestBatch(req.project._id, [req.body]);
-    res.status(202).json({ success: true, data: { queued: 1 } });
-  } catch (err) {
-    next(err);
+function ingestSingle(req, res, next) {
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    return res.status(400).json({ success: false, error: 'Request body must be a JSON log object' });
   }
+  return respond(req, res, next, [req.body]);
 }
 
 /**
@@ -22,23 +40,18 @@ async function ingestSingle(req, res, next) {
  * Ingests an array of log entries (up to 1000 per request).
  * Responds 202 Accepted immediately.
  */
-async function ingestBatchHandler(req, res, next) {
-  try {
-    // Accept either an array directly or a { logs: [...] } wrapper
-    const rawLogs = Array.isArray(req.body) ? req.body : req.body.logs;
+function ingestBatchHandler(req, res, next) {
+  // Accept either an array directly or a { logs: [...] } wrapper
+  const rawLogs = Array.isArray(req.body) ? req.body : req.body?.logs;
 
-    if (!rawLogs) {
-      return res.status(400).json({
-        success: false,
-        error: 'Request body must be an array of log objects, or { logs: [...] }',
-      });
-    }
-
-    const count = await ingestBatch(req.project._id, rawLogs);
-    res.status(202).json({ success: true, data: { queued: count } });
-  } catch (err) {
-    next(err);
+  if (!rawLogs) {
+    return res.status(400).json({
+      success: false,
+      error: 'Request body must be an array of log objects, or { logs: [...] }',
+    });
   }
+
+  return respond(req, res, next, rawLogs);
 }
 
 /**
@@ -67,8 +80,7 @@ async function ingestStream(req, res, next) {
       });
     }
 
-    const count = await ingestBatch(req.project._id, rawLogs);
-    res.status(202).json({ success: true, data: { queued: count } });
+    return respond(req, res, next, rawLogs);
   } catch (err) {
     next(err);
   }

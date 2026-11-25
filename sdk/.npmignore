@@ -1,0 +1,12 @@
+# "files" in package.json is the allow-list; this is a second safety net.
+node_modules/
+test/
+tests/
+examples/
+coverage/
+*.log
+*.tgz
+.env
+.env.*
+.DS_Store
+tsconfig.json

@@ -4,37 +4,52 @@ const mongoose = require('mongoose');
 const env = require('./env');
 const logger = require('../utils/logger');
 
-let isConnected = false;
+/** Connection string with the password removed — safe to log. */
+function redactedUri(uri = env.MONGO_URI) {
+  return uri.replace(/\/\/([^:@/]+):([^@/]+)@/, '//$1:****@');
+}
 
 /**
  * Connects to MongoDB using Mongoose.
  * Idempotent — safe to call multiple times; only connects once.
- * Uses exponential retry in development for resilience during startup.
  */
 async function connectDB() {
-  if (isConnected) return;
+  if (mongoose.connection.readyState === 1) return;
 
   try {
     await mongoose.connect(env.MONGO_URI, {
-      serverSelectionTimeoutMS: 10000, // Wait up to 10s for MongoDB to be ready
+      serverSelectionTimeoutMS: env.STARTUP_TIMEOUT_MS, // Fail fast if Atlas is unreachable
+      maxPoolSize: 20,
     });
-    isConnected = true;
-    logger.info(`MongoDB connected → ${env.MONGO_URI}`);
+    logger.info(`MongoDB connected → ${redactedUri()}`);
   } catch (err) {
-    logger.error('MongoDB connection failed:', err.message);
+    logger.error(`MongoDB connection failed (${redactedUri()}):`, err.message);
     throw err;
   }
 }
 
-// Track disconnections so reconnect attempts can be made
-mongoose.connection.on('disconnected', () => {
-  isConnected = false;
-  logger.warn('MongoDB disconnected');
-});
+/**
+ * Verifies MongoDB is reachable by running a ping command.
+ * @returns {Promise<void>} rejects if not connected or ping fails / times out
+ */
+async function pingMongo(timeoutMs = 2000) {
+  if (mongoose.connection.readyState !== 1) {
+    throw new Error('MongoDB is not connected');
+  }
+  let timer;
+  try {
+    await Promise.race([
+      mongoose.connection.db.admin().command({ ping: 1 }),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`MongoDB did not respond within ${timeoutMs}ms`)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
-mongoose.connection.on('reconnected', () => {
-  isConnected = true;
-  logger.info('MongoDB reconnected');
-});
+mongoose.connection.on('disconnected', () => logger.warn('MongoDB disconnected'));
+mongoose.connection.on('reconnected',  () => logger.info('MongoDB reconnected'));
 
-module.exports = { connectDB };
+module.exports = { connectDB, pingMongo, redactedUri };

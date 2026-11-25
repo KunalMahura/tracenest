@@ -5,6 +5,10 @@ const cors    = require('cors');
 const helmet  = require('helmet');
 const morgan  = require('morgan');
 
+const env             = require('./config/env');
+const logger          = require('./utils/logger');
+const { pingMongo }   = require('./config/db');
+const { pingRedis }   = require('./config/redis');
 const errorHandler    = require('./middleware/errorHandler.middleware');
 const { generalLimiter } = require('./middleware/rateLimit.middleware');
 
@@ -16,24 +20,54 @@ const analyticsRoutes = require('./routes/analytics.routes');
 const alertsRoutes    = require('./routes/alerts.routes');
 const sseRoutes       = require('./routes/sse.routes');
 
+const { version } = require('../package.json');
+
 const app = express();
+
+// ── Proxy awareness ────────────────────────────────────────────────
+// Railway/Render terminate TLS at a load balancer. Without this, req.ip is the
+// balancer's IP and every user shares a single rate-limit bucket.
+if (env.TRUST_PROXY) app.set('trust proxy', env.TRUST_PROXY);
 
 // ── Security headers ───────────────────────────────────────────────
 app.use(helmet());
 
-// ── CORS — allow all origins in dev; restrict in production ────────
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? process.env.ALLOWED_ORIGINS?.split(',') || false
-    : '*',
+// ── CORS ───────────────────────────────────────────────────────────
+// Two policies:
+//   1. /api/ingest — open to ANY origin. Customers' apps (and browser code on
+//      their sites) send logs here; the X-API-Key header is the credential,
+//      not the origin. No cookies are involved, so `*` is safe.
+//   2. Everything else (auth, projects, logs, analytics, SSE) — only the
+//      dashboard (DASHBOARD_URL) and ALLOWED_ORIGINS. In development, any origin.
+const ingestCors = cors({
+  origin: '*',
+  methods: ['POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'X-API-Key'],
+  exposedHeaders: ['X-Quota-Limit', 'X-Quota-Used', 'X-Quota-Remaining', 'X-Quota-Reset', 'Retry-After'],
+  maxAge: 86400,
+});
+
+if (env.isProd && env.CORS_ORIGINS.length === 0) {
+  logger.warn('DASHBOARD_URL / ALLOWED_ORIGINS not set — browsers will be blocked from the dashboard API');
+}
+
+const dashboardCors = cors({
+  origin: env.isProd ? env.CORS_ORIGINS : true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 600,
+});
+
+app.use((req, res, next) => (
+  req.path.startsWith('/api/ingest') ? ingestCors(req, res, next) : dashboardCors(req, res, next)
+));
+
+// ── Request logging (skip platform health probes) ─────────────────
+app.use(morgan(env.isProd ? 'combined' : 'dev', {
+  skip: (req) => req.path === '/health',
 }));
 
-// ── Request logging ────────────────────────────────────────────────
-app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
-
-// ── Global rate limiter ────────────────────────────────────────────
+// ── Global rate limiter (skips /health and /api/ingest) ───────────
 app.use(generalLimiter);
 
 // ── Body parsing ───────────────────────────────────────────────────
@@ -47,14 +81,31 @@ app.use((req, res, next) => {
 });
 
 // ── Health check — no auth, no rate limit ─────────────────────────
-app.get('/health', (_req, res) => {
-  res.json({
-    success: true,
+// Actively pings MongoDB and Redis. Returns 503 if either is down so the
+// platform (Railway/Docker) can mark the instance unhealthy and restart it.
+app.get('/health', async (_req, res) => {
+  const check = async (fn) => {
+    const started = Date.now();
+    try {
+      await fn();
+      return { status: 'up', latencyMs: Date.now() - started };
+    } catch (err) {
+      return { status: 'down', error: err.message };
+    }
+  };
+
+  const [mongodb, redis] = await Promise.all([check(() => pingMongo()), check(() => pingRedis())]);
+  const healthy = mongodb.status === 'up' && redis.status === 'up';
+
+  res.status(healthy ? 200 : 503).json({
+    success: healthy,
     data: {
-      status:    'ok',
+      status:    healthy ? 'ok' : 'degraded',
       service:   'tracenest-api',
-      version:   '1.0.0',
+      version,
+      uptimeSec: Math.round(process.uptime()),
       timestamp: new Date().toISOString(),
+      checks:    { mongodb, redis },
     },
   });
 });
@@ -63,7 +114,6 @@ app.get('/health', (_req, res) => {
 app.use('/api/auth',      authRoutes);
 app.use('/api/projects',  projectRoutes);
 app.use('/api/ingest',    ingestRoutes);
-// Phase 2 routes
 app.use('/api/logs',      logsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/alerts',    alertsRoutes);

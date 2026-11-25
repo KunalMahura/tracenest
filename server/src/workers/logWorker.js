@@ -18,10 +18,11 @@ require('dotenv').config();
 
 const { Worker } = require('bullmq');
 
-const { createRedisConnection } = require('../config/redis');
-const { connectDB }             = require('../config/db');
+const mongoose                  = require('mongoose');
+const { createRedisConnection, getRedis } = require('../config/redis');
+const { verifyDependencies }    = require('../config/startup');
 const Log                       = require('../models/Log');
-const { appEvents, EVENTS }     = require('../utils/events');
+const { appEvents, EVENTS, publishEventsToRedis } = require('../utils/events');
 const logger                    = require('../utils/logger');
 const env                       = require('../config/env');
 const { QUEUE_NAME }            = require('../queues/logQueue');
@@ -93,7 +94,10 @@ async function processJob(job) {
  */
 async function startWorker() {
   logger.info('Starting log worker...');
-  await connectDB();
+  await verifyDependencies();
+
+  // Forward saved-batch and alert events to the API process (SSE live feed)
+  publishEventsToRedis(getRedis());
 
   // Wire up alert evaluation — runs after every saved batch
   appEvents.on(EVENTS.LOG_BATCH_SAVED, async ({ projectId }) => {
@@ -129,6 +133,7 @@ async function startWorker() {
   const gracefulShutdown = async (signal) => {
     logger.info(`[worker] ${signal} received — closing worker gracefully...`);
     await worker.close();
+    await Promise.allSettled([getRedis().quit(), mongoose.connection.close()]);
     logger.info('[worker] Worker closed');
     process.exit(0);
   };
@@ -142,6 +147,7 @@ async function startWorker() {
 }
 
 startWorker().catch((err) => {
-  logger.error('Failed to start worker:', err.message);
+  logger.error(`FATAL: ${err.message}`);
+  logger.error('TraceNest worker is exiting because a required dependency is unavailable.');
   process.exit(1);
 });

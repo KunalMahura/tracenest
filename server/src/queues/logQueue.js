@@ -27,7 +27,7 @@ const logQueue = new Queue(QUEUE_NAME, {
   },
 });
 
-logQueue.on('error', (err) => logger.error('LogQueue error:', err.message));
+logQueue.on('error', (err) => logger.error('LogQueue error:', err.message || err.code || String(err)));
 
 /**
  * Pushes a batch of normalized log entries onto the queue.

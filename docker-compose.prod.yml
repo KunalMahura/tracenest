@@ -1,0 +1,111 @@
+# TraceNest — production stack for a single VPS / Docker host.
+#
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+#
+# MongoDB is NOT run here — point MONGO_URI at MongoDB Atlas.
+# Redis runs locally with persistence (AOF) and a password.
+# No source bind-mounts, no dev servers, no demo traffic generator.
+
+name: tracenest-prod
+
+x-server-env: &server-env
+  NODE_ENV: production
+  MONGO_URI: ${MONGO_URI:?MONGO_URI is required}
+  REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379
+  JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+  JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+  DASHBOARD_URL: ${DASHBOARD_URL:?DASHBOARD_URL is required}
+  ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+  TRUST_PROXY: ${TRUST_PROXY:-1}
+  DEFAULT_DAILY_LOG_QUOTA: ${DEFAULT_DAILY_LOG_QUOTA:-10000}
+  MAX_PROJECTS_PER_USER: ${MAX_PROJECTS_PER_USER:-5}
+  LOG_TTL_DAYS: ${LOG_TTL_DAYS:-7}
+  WORKER_BATCH_SIZE: ${WORKER_BATCH_SIZE:-100}
+  WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-5}
+  ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  # ── Redis (queue + quota counters + event bridge) ──────────────────
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy noeviction
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    logging: *default-logging
+
+  # ── API ─────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      target: prod
+    image: tracenest-server:latest
+    restart: always
+    environment:
+      <<: *server-env
+      PORT: 3000
+      SERVICE: api
+    ports:
+      - "${API_PORT:-3000}:3000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    logging: *default-logging
+
+  # ── Log worker (same image, different command) ─────────────────────
+  worker:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      target: prod
+    image: tracenest-server:latest
+    restart: always
+    command: ["node", "src/workers/logWorker.js"]
+    environment:
+      <<: *server-env
+      SERVICE: worker
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+    healthcheck:
+      disable: true
+    logging: *default-logging
+
+  # ── Dashboard (static build served by nginx) ───────────────────────
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_URL: ${VITE_API_URL:?VITE_API_URL is required (public URL of the API)}
+    restart: always
+    ports:
+      - "${DASHBOARD_PORT:-8080}:80"
+    depends_on:
+      - api
+    logging: *default-logging
+
+volumes:
+  redis_data:

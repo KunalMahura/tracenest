@@ -4,8 +4,12 @@ const rateLimit = require('express-rate-limit');
 
 /**
  * Rate limiters for different route groups.
- * Uses in-memory store (default) — sufficient for single-instance dev.
- * For multi-instance prod, swap store for rate-limit-redis.
+ * Uses in-memory store (default) — correct for a single API instance.
+ * If you scale the API horizontally, swap the store for rate-limit-redis.
+ *
+ * Behind Railway/Render/Vercel, app.js sets `trust proxy` so req.ip is the
+ * real client IP rather than the load balancer's (otherwise every user would
+ * share one bucket).
  */
 
 // ── General API limiter (all routes) ──────────────────────────────
@@ -16,7 +20,8 @@ const generalLimiter = rateLimit({
   standardHeaders: true,  // Return RateLimit-* headers per RFC 6585
   legacyHeaders: false,
   message: { success: false, error: 'Too many requests — please slow down' },
-  skip: (req) => req.path === '/health', // Don't rate-limit health checks
+  // Health checks are polled by the platform; ingest has its own per-project limiter
+  skip: (req) => req.path === '/health' || req.path.startsWith('/api/ingest'),
 });
 
 // ── Auth limiter (register/login) ─────────────────────────────────
@@ -31,11 +36,15 @@ const authLimiter = rateLimit({
 });
 
 // ── Ingest limiter ────────────────────────────────────────────────
-// High throughput: 10,000 requests per minute per IP
-// In practice, SDK clients should batch and not hit this
+// High throughput: 10,000 requests per minute per PROJECT (keyed by the
+// project resolved from X-API-Key — mount after apiKey middleware), so one
+// noisy customer can't exhaust the limit for others sharing an IP, and a
+// customer running many servers isn't throttled per IP.
+// Daily volume is capped separately by the quota system.
 const ingestLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10000,
+  keyGenerator: (req) => (req.project ? `project:${req.project._id}` : `ip:${req.ip}`),
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: 'Ingest rate limit exceeded' },

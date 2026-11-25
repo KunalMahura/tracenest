@@ -3,6 +3,7 @@
 const request = require('supertest');
 const app = require('../src/app');
 const { setupTestDB, clearTestCollections, teardownTestDB } = require('./helpers');
+const Project = require('../src/models/Project');
 
 let apiKey;
 let token;
@@ -96,5 +97,56 @@ describe('Log Ingestion API (/api/ingest)', () => {
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
     expect(res.body.error).toContain('exceeds maximum');
+  });
+
+  it('should report daily quota usage in X-Quota-* headers', async () => {
+    const res = await request(app)
+      .post('/api/ingest')
+      .set('X-API-Key', apiKey)
+      .send({ level: 'info', message: 'quota header check' });
+
+    expect(res.status).toBe(202);
+    expect(Number(res.headers['x-quota-limit'])).toBe(10000);
+    expect(Number(res.headers['x-quota-used'])).toBeGreaterThan(0);
+    expect(res.headers['x-quota-remaining']).toBeDefined();
+    expect(res.headers['x-quota-reset']).toBeDefined();
+  });
+
+  it('should reject ingestion with 429 once the daily quota is exceeded', async () => {
+    const usage = await request(app)
+      .get(`/api/projects/${projectId}/usage`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(usage.status).toBe(200);
+    const used = usage.body.data.usage.used;
+
+    // Allow exactly 2 more logs today
+    await Project.updateOne({ _id: projectId }, { dailyLogQuota: used + 2 });
+
+    const ok = await request(app)
+      .post('/api/ingest/batch')
+      .set('X-API-Key', apiKey)
+      .send([{ message: 'a' }, { message: 'b' }]);
+    expect(ok.status).toBe(202);
+    expect(Number(ok.headers['x-quota-remaining'])).toBe(0);
+
+    const over = await request(app)
+      .post('/api/ingest')
+      .set('X-API-Key', apiKey)
+      .send({ message: 'one too many' });
+    expect(over.status).toBe(429);
+    expect(over.body.success).toBe(false);
+    expect(over.body.error).toContain('quota');
+    expect(Number(over.headers['x-quota-remaining'])).toBe(0);
+    expect(over.headers['retry-after']).toBeDefined();
+  });
+
+  it('should allow ingest preflight from any origin', async () => {
+    const res = await request(app)
+      .options('/api/ingest/batch')
+      .set('Origin', 'https://some-customer-site.example')
+      .set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', 'x-api-key,content-type');
+    expect(res.status).toBe(204);
+    expect(res.headers['access-control-allow-origin']).toBe('*');
   });
 });

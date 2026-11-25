@@ -1,8 +1,52 @@
 {
   "name": "@tracenest/sdk",
-  "version": "1.0.0",
-  "description": "Lightweight Node.js/Express middleware SDK for TraceNest log and performance monitoring",
+  "version": "1.1.0",
+  "description": "Zero-dependency Node.js SDK for TraceNest — request tracing, logs and error monitoring for Express and plain node:http apps",
   "main": "index.js",
-  "keywords": ["tracenest", "logging", "monitoring", "apm", "express"],
-  "license": "MIT"
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "sideEffects": false,
+  "scripts": {
+    "prepublishOnly": "node -e \"require('./index.js')\""
+  },
+  "keywords": [
+    "tracenest",
+    "logging",
+    "monitoring",
+    "observability",
+    "apm",
+    "tracing",
+    "error-tracking",
+    "express",
+    "middleware",
+    "http"
+  ],
+  "author": "KunalMahura",
+  "license": "MIT",
+  "homepage": "https://github.com/KunalMahura/tracenest/tree/main/sdk#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KunalMahura/tracenest.git",
+    "directory": "sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/KunalMahura/tracenest/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

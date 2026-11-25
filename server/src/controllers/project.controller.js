@@ -1,6 +1,8 @@
 'use strict';
 
 const Project = require('../models/Project');
+const env     = require('../config/env');
+const { getUsage } = require('../services/quota.service');
 
 /**
  * POST /api/projects
@@ -10,6 +12,16 @@ const Project = require('../models/Project');
 async function createProject(req, res, next) {
   try {
     const { name, description } = req.body;
+
+    // Public sign-up: cap projects per account to protect shared storage
+    const existing = await Project.countDocuments({ userId: req.user.userId });
+    if (existing >= env.MAX_PROJECTS_PER_USER) {
+      return res.status(403).json({
+        success: false,
+        error: `Project limit reached (${env.MAX_PROJECTS_PER_USER} per account). Delete a project to create another.`,
+      });
+    }
+
     const { rawKey, hash, prefix } = Project.generateApiKey();
 
     const project = await Project.create({
@@ -124,4 +136,33 @@ async function regenerateApiKey(req, res, next) {
   }
 }
 
-module.exports = { createProject, listProjects, getProject, deleteProject, regenerateApiKey };
+/**
+ * GET /api/projects/:id/usage
+ * Returns today's log quota usage: { limit, used, remaining, resetsAt }.
+ */
+async function getProjectUsage(req, res, next) {
+  try {
+    const project = await Project.findOne({
+      _id:    req.params.id,
+      userId: req.user.userId,
+    });
+
+    if (!project) {
+      return res.status(404).json({ success: false, error: 'Project not found' });
+    }
+
+    const usage = await getUsage(project);
+    res.json({ success: true, data: { usage } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = {
+  createProject,
+  listProjects,
+  getProject,
+  deleteProject,
+  regenerateApiKey,
+  getProjectUsage,
+};

@@ -23,13 +23,22 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  const register = async (name, email, password) => {
+    const data = await api.auth.register(name, email, password);
+    setToken(data.token);
+    localStorage.setItem('tn_user', JSON.stringify(data.user));
+    setUser(data.user);
+    return data;
+  };
+
   const logout = () => {
+    localStorage.removeItem('tn_project');
     clearToken();
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

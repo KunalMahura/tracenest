@@ -38,6 +38,7 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
+      target: dev
     container_name: tracenest-api
     restart: unless-stopped
     ports:
@@ -65,6 +66,7 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
+      target: dev
     container_name: tracenest-worker
     restart: unless-stopped
     env_file:
@@ -95,23 +97,6 @@ services:
       - "5173:5173"
     environment:
       - VITE_API_URL=http://localhost:3000
-    depends_on:
-      - api
-
-  # ── College Results Demo App (Traffic Generator) ──────────────────────
-  demo-app:
-    build:
-      context: .
-      dockerfile: demo-app/Dockerfile
-    container_name: tracenest-demo-app
-    restart: unless-stopped
-    ports:
-      - "4000:4000"
-    environment:
-      TRACENEST_HOST: http://api:3000
-      TRACENEST_API_KEY: tn_4233af265068abcd1cf88e0c8c027db8cb7a292926c3f7df
-      TRACENEST_PROJECT_ID: 6adcf5799759bc500c5d74ca
-      DEMO_PORT: 4000
     depends_on:
       - api
 
