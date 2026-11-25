@@ -13,6 +13,7 @@ import OverviewPage   from './pages/OverviewPage'
 import LogExplorerPage from './pages/LogExplorerPage'
 import LiveFeedPage   from './pages/LiveFeedPage'
 import AlertsPage     from './pages/AlertsPage'
+import MonitorsPage   from './pages/MonitorsPage'
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth()
@@ -67,6 +68,7 @@ createRoot(document.getElementById('root')).render(
             <Route path="/logs"     element={<LogExplorerPage />} />
             <Route path="/live"     element={<LiveFeedPage />} />
             <Route path="/alerts"   element={<AlertsPage />} />
+            <Route path="/uptime"   element={<MonitorsPage />} />
             <Route path="/projects" element={<ProjectsPage />} />
           </Route>
 

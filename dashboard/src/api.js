@@ -97,4 +97,13 @@ export const api = {
     deleteRule:  (id)            => request(`/api/alerts/rules/${id}`, { method: 'DELETE' }),
     resolve:     (id)            => request(`/api/alerts/${id}/resolve`, { method: 'PATCH' }),
   },
+
+  // ── Uptime monitors ─────────────────────────────────────────────
+  monitors: {
+    list:   (projectId) => request(`/api/monitors?projectId=${projectId}`),
+    create: (data)      => request('/api/monitors', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data)  => request(`/api/monitors/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    check:  (id)        => request(`/api/monitors/${id}/check`, { method: 'POST' }),
+    del:    (id)        => request(`/api/monitors/${id}`, { method: 'DELETE' }),
+  },
 };

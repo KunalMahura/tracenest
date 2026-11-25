@@ -19,6 +19,7 @@ const logsRoutes      = require('./routes/logs.routes');
 const analyticsRoutes = require('./routes/analytics.routes');
 const alertsRoutes    = require('./routes/alerts.routes');
 const sseRoutes       = require('./routes/sse.routes');
+const monitorsRoutes  = require('./routes/monitors.routes');
 
 const { version } = require('../package.json');
 
@@ -118,6 +119,7 @@ app.use('/api/logs',      logsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/alerts',    alertsRoutes);
 app.use('/api/sse',       sseRoutes);
+app.use('/api/monitors',  monitorsRoutes);
 
 // ── 404 catch-all ──────────────────────────────────────────────────
 app.use((req, res) => {

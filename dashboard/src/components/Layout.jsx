@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import {
   LayoutDashboard, Search, Bell, LogOut, ChevronsUpDown, Check, Plus,
-  Radio, FolderKanban, BookOpen, Menu, X,
+  Radio, FolderKanban, BookOpen, Menu, X, Activity,
 } from 'lucide-react';
 import Logo from './Logo';
 
@@ -13,6 +13,7 @@ const NAV = [
   { to: '/logs',      icon: Search,          label: 'Log Explorer' },
   { to: '/live',      icon: Radio,           label: 'Live Feed', live: true },
   { to: '/alerts',    icon: Bell,            label: 'Alerts'       },
+  { to: '/uptime',    icon: Activity,        label: 'Uptime'       },
   { to: '/projects',  icon: FolderKanban,    label: 'Projects'     },
   { to: '/docs',      icon: BookOpen,        label: 'Setup Guide'  },
 ];

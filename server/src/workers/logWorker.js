@@ -27,8 +27,15 @@ const logger                    = require('../utils/logger');
 const env                       = require('../config/env');
 const { QUEUE_NAME }            = require('../queues/logQueue');
 const alertService              = require('../services/alert.service');
+const Monitor                   = require('../models/Monitor');
+const { runMonitorCheck }       = require('../services/monitor.service');
 
 const { WORKER_BATCH_SIZE, WORKER_CONCURRENCY } = env;
+
+// ── Uptime monitor scheduler settings ──────────────────────────────
+const MONITOR_TICK_MS     = 30_000;  // how often we look for due monitors
+const MONITOR_BATCH_LIMIT = 20;      // max monitors checked per tick
+const MONITOR_LEASE_MS    = 120_000; // claim lease; runMonitorCheck sets the real nextCheckAt
 
 /**
  * Enriches a raw (pre-normalised) log entry before MongoDB insertion.
@@ -89,6 +96,44 @@ async function processJob(job) {
 }
 
 /**
+ * Claims up to MONITOR_BATCH_LIMIT due monitors and checks them in parallel.
+ *
+ * Each claim is an atomic findOneAndUpdate that pushes nextCheckAt forward by
+ * a lease, so if several worker replicas tick at the same time each monitor is
+ * claimed by exactly one of them. If a worker dies mid-check, the lease simply
+ * expires and another worker picks the monitor up.
+ */
+let monitorTickRunning = false;
+async function runDueMonitors() {
+  if (monitorTickRunning) return; // previous tick still in flight
+  monitorTickRunning = true;
+  try {
+    const claimed = [];
+    for (let i = 0; i < MONITOR_BATCH_LIMIT; i++) {
+      const now = new Date();
+      const monitor = await Monitor.findOneAndUpdate(
+        { enabled: true, nextCheckAt: { $lte: now } },
+        { $set: { nextCheckAt: new Date(now.getTime() + MONITOR_LEASE_MS) } },
+        { sort: { nextCheckAt: 1 }, new: true }
+      ).lean();
+      if (!monitor) break;
+      claimed.push(monitor);
+    }
+
+    if (claimed.length === 0) return;
+
+    const results = await Promise.allSettled(claimed.map((m) => runMonitorCheck(m)));
+    const failed  = results.filter((r) => r.status === 'rejected');
+    failed.forEach((r) => logger.error(`[worker] Monitor check failed: ${r.reason?.message || r.reason}`));
+    logger.info(`[worker] Ran ${claimed.length} uptime check(s)${failed.length ? `, ${failed.length} failed` : ''}`);
+  } catch (err) {
+    logger.error(`[worker] Monitor scheduler error: ${err.message}`);
+  } finally {
+    monitorTickRunning = false;
+  }
+}
+
+/**
  * Starts the worker.
  * Connects to MongoDB, wires up the alert listener, then starts consuming jobs.
  */
@@ -129,9 +174,15 @@ async function startWorker() {
     `Log worker ready (queue="${QUEUE_NAME}", concurrency=${WORKER_CONCURRENCY}, batchSize=${WORKER_BATCH_SIZE})`
   );
 
+  // Uptime monitor scheduler — first tick right away, then every 30s
+  runDueMonitors();
+  const monitorInterval = setInterval(runDueMonitors, MONITOR_TICK_MS);
+  logger.info(`Uptime monitor scheduler ready (every ${MONITOR_TICK_MS / 1000}s, up to ${MONITOR_BATCH_LIMIT} per tick)`);
+
   // Graceful shutdown — wait for in-progress jobs to finish
   const gracefulShutdown = async (signal) => {
     logger.info(`[worker] ${signal} received — closing worker gracefully...`);
+    clearInterval(monitorInterval);
     await worker.close();
     await Promise.allSettled([getRedis().quit(), mongoose.connection.close()]);
     logger.info('[worker] Worker closed');
